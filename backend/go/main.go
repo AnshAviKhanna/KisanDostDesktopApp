@@ -88,7 +88,7 @@ func processingHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/start-processing", processingHandler)
-	port := "8080"
+	port := "8081"
 	log.Printf("[Go] Starting local API server on http://localhost:%s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)

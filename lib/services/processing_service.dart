@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ProcessingService {
-  final String _apiUrl = 'http://localhost:8080';
+  final String _apiUrl = 'http://localhost:8081';
 
   /// Starts a new processing session by calling the local Go API server.
   ///
