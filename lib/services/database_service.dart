@@ -1,4 +1,4 @@
-import 'package:kisandost_app/models/processing_result.dart';
+import 'package:kisandost_app/models/processing_result.dart'; // Make sure this path is correct
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DatabaseService {
