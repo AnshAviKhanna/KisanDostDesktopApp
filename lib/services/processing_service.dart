@@ -1,35 +1,35 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class ProcessingService {
-  final String _apiUrl = 'http://localhost:8080';
+  final String _baseUrl = 'http://localhost:8081';
 
-  /// Starts a new processing session by calling the local Go API server.
-  ///
-  /// Returns the path to the newly created database file for this session.
-  Future<String> startNewSession(List<String> imagePaths) async {
-    final url = Uri.parse('$_apiUrl/start-processing');
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'image_paths': imagePaths}),
-      );
+  Future<String> startNewSession(List<String> filePaths) async {
+    // 1. Get the app's private, sandboxed-safe directory
+    final Directory appSupportDir = await getApplicationSupportDirectory();
+    final String dbDir = path.join(appSupportDir.path, 'sessions');
 
-      if (response.statusCode == 202) { // 202 Accepted
-        final responseBody = json.decode(response.body);
-        debugPrint('Processing session started. DB path: ${responseBody['database_path']}');
-        return responseBody['database_path'];
-      } else {
-        debugPrint('API server returned an error: ${response.statusCode} ${response.body}');
-        throw Exception('Failed to start processing session.');
-      }
-    } catch (e) {
-      debugPrint('Error connecting to local API server: $e');
-      throw Exception(
-        'Could not connect to the local processing server. Please ensure it is running.'
-      );
+    // 2. Create the directory if it doesn't exist
+    await Directory(dbDir).create(recursive: true);
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/start-processing'),
+      headers: {'Content-Type': 'application/json'},
+      // 3. Send the safe directory path in the request body
+      body: jsonEncode({
+        'image_paths': filePaths,
+        'database_dir': dbDir,
+      }),
+    );
+
+    if (response.statusCode == 202) { // StatusAccepted
+      final data = jsonDecode(response.body);
+      return data['database_path'];
+    } else {
+      throw Exception('Failed to start processing: ${response.body}');
     }
   }
 }

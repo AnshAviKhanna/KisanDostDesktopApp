@@ -7,45 +7,6 @@ import 'package:path/path.dart' as path;
 
 class _DbSidebarState extends State<DbSidebar> {
   final ProcessingService _processingService = ProcessingService();
-  // ... (rest of the state variables are the same)
-
-  Future<void> _startNewSession() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.image,
-    );
-
-    if (result != null) {
-      setState(() => _isLoading = true);
-
-      final filePaths = result.paths.where((p) => p != null).map((p) => p!).toList();
-      
-      try {
-        // Call the Go API server via the service
-        final newDbPath = await _processingService.startNewSession(filePaths);
-        
-        // Refresh the list of DBs and select the new one
-        await _loadDbFiles();
-        widget.onDbSelected(newDbPath);
-
-      } catch (e) {
-        // Show an error to the user if the server connection fails
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Processing Error: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-  
-  // The rest of the file (_loadDbFiles, build method) remains the same.
-  // Full code for brevity:
   List<File> _dbFiles = [];
   bool _isLoading = false;
 
@@ -55,9 +16,19 @@ class _DbSidebarState extends State<DbSidebar> {
     _loadDbFiles();
   }
 
+  // This is the method that needed to be fixed
   Future<void> _loadDbFiles() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final files = dir
+    // --- CHANGE 1: Get the Application Support directory, not Documents ---
+    final supportDir = await getApplicationSupportDirectory();
+    final sessionsDir = Directory(path.join(supportDir.path, 'sessions'));
+
+    // If the folder doesn't exist yet (e.g., on first run), create it to avoid errors.
+    if (!await sessionsDir.exists()) {
+      await sessionsDir.create(recursive: true);
+    }
+    
+    // --- CHANGE 2: List files from the correct 'sessions' directory ---
+    final files = sessionsDir
         .listSync()
         .where((item) => item.path.endsWith('.db'))
         .whereType<File>()
@@ -65,13 +36,52 @@ class _DbSidebarState extends State<DbSidebar> {
 
     files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
 
-    setState(() {
-      _dbFiles = files;
-    });
+    if (mounted) {
+      setState(() {
+        _dbFiles = files;
+      });
+    }
+  }
+
+  Future<void> _startNewSession() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.image,
+    );
+
+    if (result != null) {
+      if (!mounted) return;
+      setState(() => _isLoading = true);
+
+      final filePaths =
+          result.paths.where((p) => p != null).map((p) => p!).toList();
+
+      try {
+        final newDbPath = await _processingService.startNewSession(filePaths);
+        await _loadDbFiles(); // Refresh the list of DBs
+        if (mounted) {
+          widget.onDbSelected(newDbPath); // Select the new one
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Processing Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // The build method remains exactly the same
     return SizedBox(
       width: 280,
       child: Material(
@@ -99,10 +109,14 @@ class _DbSidebarState extends State<DbSidebar> {
             const Divider(height: 1),
             Expanded(
               child: _dbFiles.isEmpty
-                  ? const Center(child: Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('No sessions yet. Click "New" to start.', textAlign: TextAlign.center,),
-                  ))
+                  ? const Center(
+                      child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        'No sessions yet. Click "New" to start.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ))
                   : ListView.builder(
                       itemCount: _dbFiles.length,
                       itemBuilder: (context, index) {
