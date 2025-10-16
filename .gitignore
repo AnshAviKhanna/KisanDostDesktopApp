@@ -55,3 +55,16 @@ analysis_options.yaml
 ios
 android
 
+/backend/go/build/
+/backend/go/venv_old/
+/backend/go/venv/
+/backend/go/test/
+/backend/go/segment-anything-2/
+/backend/go/3.jpeg
+/backend/go/build/
+/backend/go/build/process.spec
+/backend/go/python/build/
+/backend/go/checkpoints/
+/backend/go/sam_b.pt
+/backend/go/python/
+

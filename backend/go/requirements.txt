@@ -1,4 +1,0 @@
-# For a real ML app, you would list libraries here, e.g.:
-# tensorflow
-# numpy
-# opencv-python-headless

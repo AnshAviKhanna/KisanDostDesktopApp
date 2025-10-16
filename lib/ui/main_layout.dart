@@ -11,12 +11,34 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
+  String? _newSessionImagePath;
   String? _selectedDbPath;
+
+  void _onImageSelected(String path) {
+    setState(() {
+      _newSessionImagePath = path;
+      _selectedDbPath = null;
+    });
+  }
 
   void _onDbSelected(String dbPath) {
     setState(() {
       _selectedDbPath = dbPath;
+      _newSessionImagePath = null;
     });
+  }
+
+  Widget _buildMainContent() {
+    if (_newSessionImagePath != null) {
+      return ResultsPage(
+        key: ValueKey(_newSessionImagePath),
+        imagePath: _newSessionImagePath!,
+      );
+    }
+    if (_selectedDbPath != null) {
+      return Center(child: Text("Viewing old session: $_selectedDbPath"));
+    }
+    return const WelcomeScreen();
   }
 
   @override
@@ -26,16 +48,12 @@ class _MainLayoutState extends State<MainLayout> {
         children: [
           DbSidebar(
             onDbSelected: _onDbSelected,
+            onImageSelected: _onImageSelected, // Pass the new callback
             selectedDbPath: _selectedDbPath,
           ),
           const VerticalDivider(width: 1, thickness: 1),
           Expanded(
-            child: _selectedDbPath == null
-                ? const WelcomeScreen()
-                : ResultsPage(
-                    key: ValueKey(_selectedDbPath),
-                    dbPath: _selectedDbPath!,
-                  ),
+            child: _buildMainContent(),
           ),
         ],
       ),

@@ -1,35 +1,48 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:kisandost_app/models/processing_response_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'dart:io';
 
 class ProcessingService {
   final String _baseUrl = 'http://localhost:8081';
 
-  Future<String> startNewSession(List<String> filePaths) async {
-    // 1. Get the app's private, sandboxed-safe directory
-    final Directory appSupportDir = await getApplicationSupportDirectory();
-    final String dbDir = path.join(appSupportDir.path, 'sessions');
+  Future<ProcessingResponseData> processImage(String imagePath) async {
+    final supportDir = await getApplicationSupportDirectory();
+    final outputDir = Directory(path.join(supportDir.path, 'processed_images'));
 
-    // 2. Create the directory if it doesn't exist
-    await Directory(dbDir).create(recursive: true);
+    if (!await outputDir.exists()) {
+      await outputDir.create(recursive: true);
+    }
+
+    final originalFileName = path.basenameWithoutExtension(imagePath);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final processedFileName = '${originalFileName}_${timestamp}_processed.jpg';
+    final outputPath = path.join(outputDir.path, processedFileName);
 
     final response = await http.post(
-      Uri.parse('$_baseUrl/start-processing'),
+      Uri.parse('$_baseUrl/process-image'),
       headers: {'Content-Type': 'application/json'},
-      // 3. Send the safe directory path in the request body
       body: jsonEncode({
-        'image_paths': filePaths,
-        'database_dir': dbDir,
+        'image_path': imagePath,
+        'output_path': outputPath, 
       }),
     );
 
-    if (response.statusCode == 202) { // StatusAccepted
+    if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['database_path'];
+      return ProcessingResponseData.fromMap(data);
     } else {
-      throw Exception('Failed to start processing: ${response.body}');
+      String errorMessage = response.body;
+      try {
+        final errorData = jsonDecode(response.body);
+        if (errorData['error'] != null) {
+          errorMessage = errorData['error'];
+        }
+      } catch (_) {
+      }
+      throw Exception('Failed to process image: $errorMessage');
     }
   }
 }
